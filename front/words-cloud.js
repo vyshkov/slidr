@@ -5,45 +5,6 @@ const MX = 9.602;
 const MY = 21;
 const DELTA = 21;
 
-const zeroPad = (num, places = 2) => String(num).padStart(places, ' ');
-
-function getRoot(id = 'root') {
-    return document.getElementById(id);
-}
-
-function printMatrix(mesh) {
-    let res = '';
-    for (let j = 0; j < mesh[0].length; j++) {
-        for (let i = 0; i < mesh.length; i++) {
-            res += zeroPad(mesh[i][j]) + '  ';
-        }
-        res += '\n';
-    }
-    console.log(res);
-}
-
-function getSize(element) {
-    const rect = element.getBoundingClientRect();
-    return rect;
-}
-
-function createElement(text, className, size, direction) {
-    const element = document.createElement('div');
-    element.innerHTML = text + direction || '-';
-    if (className) element.classList.add(className);
-    if (size) {
-        element.classList.add(`size-${size}`);
-    }
-    if (direction) {
-        element.classList.add(`direction-${direction}`);
-    }
-    return element;
-}
-
-function timeout(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 const words = [
     {
         id: 1,
@@ -128,66 +89,51 @@ const words = [
 ].concat(
     new Array(50)
         .fill(0)
-        .map((val, i) => ({ id: 16 + i, value: 'text' + i, weight: 1 }))
+        .map((_, i) => ({ id: 16 + i, value: 'text' + i, weight: 1 }))
 );
 
-const sorted = words.sort((a, b) => b.weight - a.weight);
-const size = getSize(getRoot());
+const zeroPad = (num, places = 2) => String(num).padStart(places, ' ');
 
-const meshSizeX = Math.floor(size.width / DELTA);
-const meshSizeY = Math.floor(size.height / DELTA);
+function getRoot(id = 'root') {
+    return document.getElementById(id);
+}
 
-getRoot().style.width = '200%';
-getRoot().style.height = '200%';
-
-const mesh = new Array(meshSizeX)
-    .fill(0)
-    .map(() => new Array(meshSizeY).fill(0));
-
-const wordsRegistry = {};
-
-async function start() {
-    for (let word of sorted) {
-        const wordSize = getWordSize(word);
-        const wordNewPosition = findWordPosition(wordSize, mesh, wordsRegistry);
-        if (wordNewPosition) {
-            wordsRegistry[word.id] = wordNewPosition;
-            fillWordMesh(mesh, wordNewPosition, word);
-
-            const element = document.createElement('div');
-            element.innerHTML = word.value;
-            element.id = `word-${word.id}`;
-            element.classList.add('word');
-            element.classList.add(
-                wordNewPosition.direction === HORIZONTAL
-                    ? 'horizontal'
-                    : 'vertical'
-            );
-            element.style.opacity = 0;
-            getRoot().appendChild(element);
-            await timeout(90);
-            element.style.opacity = 1;
-            element.classList.add(`weight-${word.weight}`);
-            element.style.top = `${
-                wordNewPosition.direction === HORIZONTAL
-                    ? wordNewPosition.nextPoint.y * DELTA
-                    : wordNewPosition.nextPoint.y * DELTA
-            }px`;
-            element.style.left = `${
-                wordNewPosition.direction === HORIZONTAL
-                    ? wordNewPosition.nextPoint.x * DELTA
-                    : wordNewPosition.nextPoint.x * DELTA
-            }px`;
-        } else {
-            console.warn('No space for', word);
+function printMatrix(mesh) {
+    let res = '';
+    for (let j = 0; j < mesh[0].length; j++) {
+        for (let i = 0; i < mesh.length; i++) {
+            res += mesh[i][j] === null ? '..  ' : zeroPad(mesh[i][j]) + '  ';
         }
+        res += '\n';
     }
+    console.log(res);
+}
+
+function getSize(element) {
+    const rect = element.getBoundingClientRect();
+    return rect;
+}
+
+function createElement(text, className, size, direction) {
+    const element = document.createElement('div');
+    element.innerHTML = text + direction || '-';
+    if (className) element.classList.add(className);
+    if (size) {
+        element.classList.add(`size-${size}`);
+    }
+    if (direction) {
+        element.classList.add(`direction-${direction}`);
+    }
+    return element;
+}
+
+function timeout(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function update(id, update) {
     await timeout(1000);
     const word = words[id];
-    console.log('word!', word);
     const position = wordsRegistry[word.id];
     const element = document.getElementById(`word-${word.id}`);
 
@@ -236,21 +182,10 @@ async function update(id, update) {
 function clearMesh(mesh, position) {
     for (let i = 0; i < position.nextPoint.neededX; i++) {
         for (let j = 0; j < position.nextPoint.neededY; j++) {
-            mesh[position.nextPoint.x + i][position.nextPoint.y + j] = 0;
+            mesh[position.nextPoint.x + i][position.nextPoint.y + j] = null;
         }
     }
 }
-
-start()
-    .then(() => printMatrix(mesh))
-    .then(() => update(10, { weight: 2 }))
-    .then(() => update(10, { weight: 3 }))
-    .then(() => update(1, { weight: 1 }))
-    .then(() => update(2, { weight: 1 }))
-    .then(() => update(11, { weight: 5 }))
-    .then(() => update(40, { weight: 5 }))
-    .then(() => update(41, { weight: 4 }))
-    .then(() => printMatrix(mesh));
 
 function fillWordMesh(mesh, { nextPoint, direction }, word) {
     for (let j = 0; j < nextPoint.neededY; j++) {
@@ -349,7 +284,7 @@ function pointer({ dx = 1, dy = 0 }, currX, currY, diffX, diffY) {
     };
 }
 
-function checkPoint(pointX, pointY, length, multiplier, matrix, dir = 1) {
+function checkPoint(pointX, pointY, length, multiplier, matrix, dir = HORIZONTAL) {
     if (pointX < 0 || pointY < 0) {
         return false;
     }
@@ -368,7 +303,7 @@ function checkPoint(pointX, pointY, length, multiplier, matrix, dir = 1) {
 
         for (let i = 0; i < neededX; i++) {
             for (let j = 0; j < neededY; j++) {
-                if (matrix[i + pointX][j + pointY] !== 0) {
+                if (matrix[i + pointX][j + pointY] !== null) {
                     return false;
                 }
             }
@@ -389,7 +324,7 @@ function checkPoint(pointX, pointY, length, multiplier, matrix, dir = 1) {
 
         for (let i = 0; i < neededX; i++) {
             for (let j = 0; j < neededY; j++) {
-                if (matrix[i + pointX][j + pointY] !== 0) {
+                if (matrix[i + pointX][j + pointY] !== null) {
                     return false;
                 }
             }
@@ -425,7 +360,7 @@ function findWordPosition(wordSize, mesh, wordsRegistry) {
             point.currY >= 0 &&
             point.currX < mesh.length &&
             point.currY < mesh[0].length &&
-            mesh[point.currX][point.currY] === 0
+            mesh[point.currX][point.currY] === null
         ) {
             if (
                 checkPoint(
@@ -434,7 +369,7 @@ function findWordPosition(wordSize, mesh, wordsRegistry) {
                     wordSize.width,
                     wordSize.weight,
                     mesh,
-                    1
+                    HORIZONTAL
                 )
             ) {
                 return {
@@ -456,7 +391,7 @@ function findWordPosition(wordSize, mesh, wordsRegistry) {
                     wordSize.width,
                     wordSize.weight,
                     mesh,
-                    2
+                    VERTICAL
                 )
             ) {
                 return {
@@ -475,3 +410,72 @@ function findWordPosition(wordSize, mesh, wordsRegistry) {
         i++;
     }
 }
+
+
+// App
+
+const sorted = words.sort((a, b) => b.weight - a.weight);
+const size = getSize(getRoot());
+
+const meshSizeX = Math.floor(size.width / DELTA);
+const meshSizeY = Math.floor(size.height / DELTA);
+
+const mesh = new Array(meshSizeX)
+    .fill(0)
+    .map(() => new Array(meshSizeY).fill(null));
+
+const wordsRegistry = {};
+
+async function start() {
+
+    getRoot().style.width = '200%';
+    getRoot().style.height = '200%';
+
+    for (let word of sorted) {
+        const wordSize = getWordSize(word);
+        const wordNewPosition = findWordPosition(wordSize, mesh, wordsRegistry);
+       
+        if (wordNewPosition) {
+            wordsRegistry[word.id] = wordNewPosition;
+            fillWordMesh(mesh, wordNewPosition, word);
+
+            const element = document.createElement('div');
+            element.innerHTML = word.value;
+            element.id = `word-${word.id}`;
+            element.classList.add('word');
+            element.classList.add(
+                wordNewPosition.direction === HORIZONTAL
+                    ? 'horizontal'
+                    : 'vertical'
+            );
+            element.style.opacity = 0;
+            getRoot().appendChild(element);
+            await timeout(90);
+            element.style.opacity = 1;
+            element.classList.add(`weight-${word.weight}`);
+            element.style.top = `${
+                wordNewPosition.direction === HORIZONTAL
+                    ? wordNewPosition.nextPoint.y * DELTA
+                    : wordNewPosition.nextPoint.y * DELTA
+            }px`;
+            element.style.left = `${
+                wordNewPosition.direction === HORIZONTAL
+                    ? wordNewPosition.nextPoint.x * DELTA
+                    : wordNewPosition.nextPoint.x * DELTA
+            }px`;
+        } else {
+            console.warn('No space for', word);
+        }
+    }
+}
+
+start()
+    .then(() => printMatrix(mesh))
+    .then(() => update(10, { weight: 2 }))
+    .then(() => update(10, { weight: 3 }))
+    .then(() => update(1, { weight: 1 }))
+    .then(() => update(2, { weight: 1 }))
+    .then(() => update(11, { weight: 5 }))
+    .then(() => update(40, { weight: 5 }))
+    .then(() => update(41, { weight: 4 }))
+    .then(() => printMatrix(mesh));
