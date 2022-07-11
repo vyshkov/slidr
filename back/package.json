@@ -1,0 +1,23 @@
+{
+  "name": "slidr",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon --watch ../back index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@fastify/static": "^6.4.0",
+    "fastify": "^4.0.0",
+    "systeminformation": "^5.11.22",
+    "uuid": "^8.3.2",
+    "ws": "^8.8.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.16"
+  }
+}
