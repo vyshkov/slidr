@@ -27,13 +27,11 @@ body {
     transition: 2.5s;
 }
 
-
 .status.connected {
     background-color: green;
     opacity: 0;
     transform: translateY(100%);
 }
-
 
 .question {
     padding: 10px;
@@ -88,7 +86,7 @@ body {
 
 .chart-vote-value:hover {
     box-shadow: 0 0 100px rgba(0, 0, 0, 0.2) inset;
-} 
+}
 
 .chart-labels {
     display: flex;
