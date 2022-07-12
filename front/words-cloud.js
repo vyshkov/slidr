@@ -151,13 +151,15 @@ async function update(id, update) {
         fillWordMesh(mesh, wordNewPosition, word);
 
         element.innerHTML = word.value;
-        element.classList.remove('horizontal');
-        element.classList.remove('vertical');
-        element.classList.remove('weight-1');
-        element.classList.remove('weight-2');
-        element.classList.remove('weight-3');
-        element.classList.remove('weight-4');
-        element.classList.remove('weight-5');
+        element.classList.remove(
+            'horizontal',
+            'vertical',
+            'weight-1',
+            'weight-2',
+            'weight-3',
+            'weight-4',
+            'weight-5'
+        );
         element.classList.add(
             wordNewPosition.direction === HORIZONTAL ? 'horizontal' : 'vertical'
         );
@@ -284,49 +286,36 @@ function pointer({ dx = 1, dy = 0 }, currX, currY, diffX, diffY) {
     };
 }
 
-function checkPoint(pointX, pointY, length, multiplier, matrix, dir = HORIZONTAL) {
+function checkPoint(
+    pointX,
+    pointY,
+    length,
+    multiplier,
+    matrix,
+    dir = HORIZONTAL
+) {
     if (pointX < 0 || pointY < 0) {
         return false;
     }
 
-    if (dir === 1) {
-        const neededX = Math.ceil((length * multiplier * MX) / DELTA);
-        const neededY = Math.ceil((multiplier * MY) / DELTA);
+    let s1 = Math.ceil((length * multiplier * MX) / DELTA);
+    let s2 = Math.ceil((multiplier * MY) / DELTA);
 
-        if (matrix.length - pointX < neededX) {
-            return false;
-        }
+    const neededX = dir === HORIZONTAL ? s1 : s2;
+    const neededY = dir === HORIZONTAL ? s2 : s1;
 
-        if (matrix[0].length - pointY < neededY) {
-            return false;
-        }
-
-        for (let i = 0; i < neededX; i++) {
-            for (let j = 0; j < neededY; j++) {
-                if (matrix[i + pointX][j + pointY] !== null) {
-                    return false;
-                }
-            }
-        }
+    if (matrix.length - pointX < neededX) {
+        return false;
     }
 
-    if (dir === 2) {
-        const neededX = Math.ceil((multiplier * MY) / DELTA);
-        const neededY = Math.ceil((length * multiplier * MX) / DELTA);
+    if (matrix[0].length - pointY < neededY) {
+        return false;
+    }
 
-        if (matrix.length - pointX < neededX) {
-            return false;
-        }
-
-        if (matrix[0].length - pointY < neededY) {
-            return false;
-        }
-
-        for (let i = 0; i < neededX; i++) {
-            for (let j = 0; j < neededY; j++) {
-                if (matrix[i + pointX][j + pointY] !== null) {
-                    return false;
-                }
+    for (let i = 0; i < neededX; i++) {
+        for (let j = 0; j < neededY; j++) {
+            if (matrix[i + pointX][j + pointY] !== null) {
+                return false;
             }
         }
     }
@@ -411,7 +400,6 @@ function findWordPosition(wordSize, mesh, wordsRegistry) {
     }
 }
 
-
 // App
 
 const sorted = words.sort((a, b) => b.weight - a.weight);
@@ -427,14 +415,13 @@ const mesh = new Array(meshSizeX)
 const wordsRegistry = {};
 
 async function start() {
-
     getRoot().style.width = '200%';
     getRoot().style.height = '200%';
 
     for (let word of sorted) {
         const wordSize = getWordSize(word);
         const wordNewPosition = findWordPosition(wordSize, mesh, wordsRegistry);
-       
+
         if (wordNewPosition) {
             wordsRegistry[word.id] = wordNewPosition;
             fillWordMesh(mesh, wordNewPosition, word);
