@@ -5,7 +5,7 @@ const MX = 9.602;
 const MY = 21;
 const DELTA = 21;
 
-const words = [
+const data = [
     {
         id: 1,
         value: 'Yo',
@@ -98,7 +98,8 @@ function getRoot(id = 'root') {
     return document.getElementById(id);
 }
 
-function printMatrix(mesh) {
+function printMatrix(props) {
+    const mesh = props.mesh;
     let res = '';
     for (let j = 0; j < mesh[0].length; j++) {
         for (let i = 0; i < mesh.length; i++) {
@@ -107,11 +108,11 @@ function printMatrix(mesh) {
         res += '\n';
     }
     console.log(res);
+    return props;
 }
 
 function getSize(element) {
-    const rect = element.getBoundingClientRect();
-    return rect;
+    return element.getBoundingClientRect();;
 }
 
 function createElement(text, className, size, direction) {
@@ -131,7 +132,7 @@ function timeout(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function update(id, update) {
+async function update(id, update, { words, mesh, wordsRegistry }) {
     await timeout(1000);
     const word = words[id];
     const position = wordsRegistry[word.id];
@@ -147,7 +148,6 @@ async function update(id, update) {
     const wordNewPosition = findWordPosition(wordSize, mesh, wordsRegistry);
     if (wordNewPosition) {
         wordsRegistry[word.id] = wordNewPosition;
-        console.log('#', wordNewPosition, word);
         fillWordMesh(mesh, wordNewPosition, word);
 
         element.innerHTML = word.value;
@@ -177,8 +177,9 @@ async function update(id, update) {
         }px`;
     } else {
         console.warn('No space for', word);
-        findPossiblePositions;
+        //findPossiblePositions;
     }
+    return { words, mesh, wordsRegistry };
 }
 
 function clearMesh(mesh, position) {
@@ -205,7 +206,7 @@ function getWordSize(word) {
     };
 }
 
-function getRandomWord(data, mesh, wordSize) {
+function getRandomWord(wordsRegistry, mesh, wordSize) {
     if (Object.keys(wordsRegistry).length === 0) {
         return {
             nextPoint: {
@@ -225,9 +226,9 @@ function getRandomWord(data, mesh, wordSize) {
         };
     }
 
-    const keys = Object.keys(data);
+    const keys = Object.keys(wordsRegistry);
     const randomKey = keys[Math.floor(Math.random() * keys.length)];
-    return data[randomKey];
+    return wordsRegistry[randomKey];
 }
 
 function pointer({ dx = 1, dy = 0 }, currX, currY, diffX, diffY) {
@@ -401,20 +402,19 @@ function findWordPosition(wordSize, mesh, wordsRegistry) {
 }
 
 // App
+async function start(words) {
+    const sorted = words.sort((a, b) => b.weight - a.weight);
+    const size = getSize(getRoot());
+    
+    const meshSizeX = Math.floor(size.width / DELTA);
+    const meshSizeY = Math.floor(size.height / DELTA);
+    
+    const mesh = new Array(meshSizeX)
+        .fill(0)
+        .map(() => new Array(meshSizeY).fill(null));
+    
+    const wordsRegistry = {};
 
-const sorted = words.sort((a, b) => b.weight - a.weight);
-const size = getSize(getRoot());
-
-const meshSizeX = Math.floor(size.width / DELTA);
-const meshSizeY = Math.floor(size.height / DELTA);
-
-const mesh = new Array(meshSizeX)
-    .fill(0)
-    .map(() => new Array(meshSizeY).fill(null));
-
-const wordsRegistry = {};
-
-async function start() {
     getRoot().style.width = '200%';
     getRoot().style.height = '200%';
 
@@ -454,15 +454,17 @@ async function start() {
             console.warn('No space for', word);
         }
     }
+
+    return { words, mesh, wordsRegistry };
 }
 
-start()
-    .then(() => printMatrix(mesh))
-    .then(() => update(10, { weight: 2 }))
-    .then(() => update(10, { weight: 3 }))
-    .then(() => update(1, { weight: 1 }))
-    .then(() => update(2, { weight: 1 }))
-    .then(() => update(11, { weight: 5 }))
-    .then(() => update(40, { weight: 5 }))
-    .then(() => update(41, { weight: 4 }))
-    .then(() => printMatrix(mesh));
+start(data)
+    .then(props => printMatrix(props))
+    .then(props => update(10, { weight: 2 }, props))
+    .then(props => update(10, { weight: 3 }, props))
+    .then(props => update(1, { weight: 1 }, props))
+    .then(props => update(2, { weight: 1 }, props))
+    .then(props => update(11, { weight: 5 }, props))
+    .then(props => update(40, { weight: 5 }, props))
+    .then(props => update(41, { weight: 4 }, props))
+    .then(props => printMatrix(props));
