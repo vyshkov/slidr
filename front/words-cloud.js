@@ -103,7 +103,7 @@ function printMatrix(props) {
     let res = '';
     for (let j = 0; j < mesh[0].length; j++) {
         for (let i = 0; i < mesh.length; i++) {
-            res += mesh[i][j] === null ? '..  ' : zeroPad(mesh[i][j]) + '  ';
+            res += mesh[i][j] === null ? '..  ' : zeroPad(mesh[i][j][0]) + '  ';
         }
         res += '\n';
     }
@@ -190,10 +190,10 @@ function clearMesh(mesh, position) {
     }
 }
 
-function fillWordMesh(mesh, { nextPoint, direction }, word) {
+function fillWordMesh(mesh, { nextPoint }, word) {
     for (let j = 0; j < nextPoint.neededY; j++) {
         for (let i = 0; i < nextPoint.neededX; i++) {
-            mesh[nextPoint.x + i][nextPoint.y + j] = word.id;
+            mesh[nextPoint.x + i][nextPoint.y + j] = [word.id, word.weight];
         }
     }
 }
