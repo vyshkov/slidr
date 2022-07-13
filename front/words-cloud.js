@@ -231,22 +231,13 @@ function getRandomWord(wordsRegistry, mesh, wordSize) {
     return wordsRegistry[randomKey];
 }
 
-function pointer({ dx = 1, dy = 0 }, currX, currY, diffX, diffY) {
+function Pointer({ dx = 1, dy = 0 }, currX, currY, diffX, diffY) {
     let diff = dx === 1 ? diffX : diffY;
 
     let pos = 0;
     return {
-        getDx() {
-            return dx;
-        },
-        getDy() {
-            return dy;
-        },
         getCurr() {
             return { currX, currY };
-        },
-        val() {
-            return { dx, dy };
         },
         next() {
             if (dx === 1 && dy === 0) {
@@ -339,7 +330,7 @@ function findWordPosition(wordSize, mesh, wordsRegistry) {
     let diffX = mesh.length - mesh[0].length < 0 ? 1 : diff;
     let diffY = mesh.length - mesh[0].length > 0 ? 1 : diff;
 
-    const p = new pointer({ dx: 1, dy: 0 }, startX, startY, diffX, diffY);
+    const p = new Pointer({ dx: 1, dy: 0 }, startX, startY, diffX, diffY);
 
     let i = 0;
     while (i < 4 * meshSize) {
