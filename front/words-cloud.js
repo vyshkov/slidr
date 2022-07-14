@@ -7,6 +7,11 @@ const DELTA = 21;
 
 const data = [
     {
+        id: 0,
+        value: "zero",
+        weight: 1
+    },
+    {
         id: 1,
         value: 'Yo',
         weight: 5
@@ -89,7 +94,7 @@ const data = [
 ].concat(
     new Array(50)
         .fill(0)
-        .map((_, i) => ({ id: 16 + i, value: 'text' + i, weight: 1 }))
+        .map((_, i) => ({ id: 17 + i, value: 'text' + i, weight: 1 }))
 );
 
 const zeroPad = (num, places = 2) => String(num).padStart(places, ' ');
@@ -132,23 +137,64 @@ function timeout(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function update(id, update, { words, mesh, wordsRegistry }) {
-    await timeout(1000);
-    const word = words[id];
-    const position = wordsRegistry[word.id];
+function removeFromMesh(mesh, wordsRegistry, id) {
+    console.log('removing', id, typeof id)
+    const position = wordsRegistry[id] ;
+    for (let i = 0; i < position.nextPoint.neededX; i++) {
+        for (let j = 0; j < position.nextPoint.neededY; j++) {
+            if (mesh[position.nextPoint.x + i][position.nextPoint.y + j] && mesh[position.nextPoint.x + i][position.nextPoint.y + j][0] === id) {
+                mesh[position.nextPoint.x + i][position.nextPoint.y + j] = null;
+            }
+        }
+    }
+}
+
+function getWordsOnArea({ x, y, width, height }, { words, mesh, wordsRegistry }) {
+    const res = {};
+
+    for (let i = x; i < x + width; i ++) {
+        for (let j = y; j < y + height; j++) {
+            if (mesh[i][j] && !res[mesh[i][j][0]]) {
+                res[mesh[i][j][0]] = wordsRegistry[mesh[i][j][0]]
+            }
+        }
+    }
+
+    return res;
+}
+
+async function update(id, upd, { words, mesh, wordsRegistry }, ignoreWeight = 0, time = 1000) {
+    await timeout(time);
+    const word = words.find(word => word.id === id);
     const element = document.getElementById(`word-${word.id}`);
-
-    clearMesh(mesh, position);
-
-    if (update.weight) {
-        word.weight = update.weight;
+    console.log('>>updating word', word, element)
+    removeFromMesh(mesh, wordsRegistry, id)
+    
+    if (upd.weight) {
+        word.weight = upd.weight;
     }
 
     const wordSize = getWordSize(word);
-    const wordNewPosition = findWordPosition(wordSize, mesh, wordsRegistry);
+    const wordNewPosition = findWordPosition(wordSize, mesh, wordsRegistry, ignoreWeight);
+   
     if (wordNewPosition) {
         wordsRegistry[word.id] = wordNewPosition;
+
+        const wordsBehind = getWordsOnArea(
+            { 
+                x: wordNewPosition.nextPoint.x,
+                y: wordNewPosition.nextPoint.y,
+                width: wordNewPosition.nextPoint.neededX,
+                height: wordNewPosition.nextPoint.neededY,
+            },{ words, mesh, wordsRegistry }
+        );
+
+        console.log('?? intersected', wordsBehind)
         fillWordMesh(mesh, wordNewPosition, word);
+
+        for(let key of Object.keys(wordsBehind)) {
+            await update(Number(key), {}, { words, mesh, wordsRegistry }, 0, 0)
+        }
 
         element.innerHTML = word.value;
         element.classList.remove(
@@ -176,7 +222,7 @@ async function update(id, update, { words, mesh, wordsRegistry }) {
                 : wordNewPosition.nextPoint.x * DELTA
         }px`;
     } else {
-        console.warn('No space for', word);
+        console.warn('No space for', word, 'needed X=', word.weight * word.value.length, 'needed Y=', word.weight,'matrixX', mesh.length, 'matrixY', mesh[0].length);
         //findPossiblePositions;
     }
     return { words, mesh, wordsRegistry };
@@ -231,9 +277,12 @@ function getRandomWord(wordsRegistry, mesh, wordSize) {
     return wordsRegistry[randomKey];
 }
 
-function Pointer({ dx = 1, dy = 0 }, currX, currY, diffX, diffY) {
-    let diff = dx === 1 ? diffX : diffY;
+function Pointer(currX, currY, diffX, diffY) {
+    let dx = diffX > diffY ? 1 : 0;
+    let dy = diffX > diffY ? 0 : 1;
 
+    let diff = Math.max(diffX, diffY);
+    
     let pos = 0;
     return {
         getCurr() {
@@ -284,7 +333,8 @@ function checkPoint(
     length,
     multiplier,
     matrix,
-    dir = HORIZONTAL
+    dir = HORIZONTAL,
+    ignoreWeight = 0,
 ) {
     if (pointX < 0 || pointY < 0) {
         return false;
@@ -306,7 +356,7 @@ function checkPoint(
 
     for (let i = 0; i < neededX; i++) {
         for (let j = 0; j < neededY; j++) {
-            if (matrix[i + pointX][j + pointY] !== null) {
+            if (matrix[i + pointX][j + pointY] !== null && matrix[i + pointX][j + pointY][1] > ignoreWeight) {
                 return false;
             }
         }
@@ -321,7 +371,7 @@ function pointAround(randomWord) {
     return { startX, startY };
 }
 
-function findWordPosition(wordSize, mesh, wordsRegistry) {
+function findWordPosition(wordSize, mesh, wordsRegistry, ignoreWeight = 0) {
     const randomWord = getRandomWord(wordsRegistry, mesh, wordSize);
 
     const meshSize = mesh.length * mesh[0].length;
@@ -330,18 +380,19 @@ function findWordPosition(wordSize, mesh, wordsRegistry) {
     let diffX = mesh.length - mesh[0].length < 0 ? 1 : diff;
     let diffY = mesh.length - mesh[0].length > 0 ? 1 : diff;
 
-    const p = new Pointer({ dx: 1, dy: 0 }, startX, startY, diffX, diffY);
-
+    const p = new Pointer(startX, startY, diffX, diffY);
+    
     let i = 0;
-    while (i < 4 * meshSize) {
+    while (i < 6 * meshSize) {
         p.iteration();
         const point = p.getCurr();
+        
         if (
             point.currX >= 0 &&
             point.currY >= 0 &&
             point.currX < mesh.length &&
             point.currY < mesh[0].length &&
-            mesh[point.currX][point.currY] === null
+            (mesh[point.currX][point.currY] === null || (mesh[point.currX][point.currY] && (mesh[point.currX][point.currY][1] >= ignoreWeight)))
         ) {
             if (
                 checkPoint(
@@ -350,7 +401,8 @@ function findWordPosition(wordSize, mesh, wordsRegistry) {
                     wordSize.width,
                     wordSize.weight,
                     mesh,
-                    HORIZONTAL
+                    HORIZONTAL,
+                    ignoreWeight
                 )
             ) {
                 return {
@@ -372,7 +424,8 @@ function findWordPosition(wordSize, mesh, wordsRegistry) {
                     wordSize.width,
                     wordSize.weight,
                     mesh,
-                    VERTICAL
+                    VERTICAL,
+                    ignoreWeight
                 )
             ) {
                 return {
@@ -451,11 +504,40 @@ async function start(words) {
 
 start(data)
     .then(props => printMatrix(props))
-    .then(props => update(10, { weight: 2 }, props))
-    .then(props => update(10, { weight: 3 }, props))
+    .then(props => update(10, { weight: 2 }, props, 1))
+    .then(props => update(10, { weight: 3 }, props, 1))
     .then(props => update(1, { weight: 1 }, props))
     .then(props => update(2, { weight: 1 }, props))
-    .then(props => update(11, { weight: 5 }, props))
-    .then(props => update(40, { weight: 5 }, props))
-    .then(props => update(41, { weight: 4 }, props))
-    .then(props => printMatrix(props));
+    .then(props => update(11, { weight: 5 }, props, 1))
+    .then(props => update(40, { weight: 5 }, props, 1))
+   .then(props => update(41, { weight: 4 }, props, 1))
+   .then(props => printMatrix(props))
+    .then(props => console.log(getWordsOnArea({ x: 3, y: 3, width: 5, height: 5 }, props)));
+
+
+    // const mesh = new Array(16).fill(0).map(() => new Array(4).fill(0).map(() => [0]));
+
+    // printMatrix({ mesh });
+
+    // const startX = 2;
+    // const startY = 2;
+
+    // const diff = Math.abs(mesh.length - mesh[0].length);
+    // let diffX = mesh.length - mesh[0].length < 0 ? 1 : diff;
+    // let diffY = mesh.length - mesh[0].length > 0 ? 1 : diff;
+
+    // const p = new Pointer(startX, startY, diffX, diffY);
+
+    // for (let i = 0; i < 80; i++) {
+      
+    //    const point = p.getCurr();
+    //    console.log(point);
+    //    if (mesh[point.currX] && mesh[point.currX][point.currY] ) {
+    //     mesh[point.currX][point.currY][0] = i + 1;
+    //    }
+    //    p.iteration();
+    // }
+
+    // printMatrix({ mesh });
+
+
