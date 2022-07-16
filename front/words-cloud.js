@@ -18,7 +18,7 @@ const data = [
     },
     {
         id: 2,
-        value: 'zzz',
+        value: 'ABC',
         weight: 4
     },
     {
@@ -94,7 +94,7 @@ const data = [
 ].concat(
     new Array(50)
         .fill(0)
-        .map((_, i) => ({ id: 17 + i, value: 'text' + i, weight: 1 }))
+        .map((_, i) => ({ id: 17 + i, value: 'text' + (17+i), weight: 1 }))
 );
 
 const zeroPad = (num, places = 2) => String(num).padStart(places, ' ');
@@ -130,6 +130,7 @@ function createElement(text, className, size, direction) {
     if (direction) {
         element.classList.add(`direction-${direction}`);
     }
+    element.title = className;
     return element;
 }
 
@@ -138,7 +139,6 @@ function timeout(ms) {
 }
 
 function removeFromMesh(mesh, wordsRegistry, id) {
-    console.log('removing', id, typeof id)
     const position = wordsRegistry[id] ;
     for (let i = 0; i < position.nextPoint.neededX; i++) {
         for (let j = 0; j < position.nextPoint.neededY; j++) {
@@ -163,11 +163,9 @@ function getWordsOnArea({ x, y, width, height }, { words, mesh, wordsRegistry })
     return res;
 }
 
-async function update(id, upd, { words, mesh, wordsRegistry }, ignoreWeight = 0, time = 1000) {
+async function update(id, upd, { words, mesh, wordsRegistry }, ignoreWeight = 0, time = 1000, top = true, cache = {}) {
     await timeout(time);
     const word = words.find(word => word.id === id);
-    const element = document.getElementById(`word-${word.id}`);
-    console.log('>>updating word', word, element)
     removeFromMesh(mesh, wordsRegistry, id)
     
     if (upd.weight) {
@@ -179,6 +177,7 @@ async function update(id, upd, { words, mesh, wordsRegistry }, ignoreWeight = 0,
    
     if (wordNewPosition) {
         wordsRegistry[word.id] = wordNewPosition;
+        cache[word.id] = wordNewPosition;
 
         const wordsBehind = getWordsOnArea(
             { 
@@ -189,42 +188,52 @@ async function update(id, upd, { words, mesh, wordsRegistry }, ignoreWeight = 0,
             },{ words, mesh, wordsRegistry }
         );
 
-        console.log('?? intersected', wordsBehind)
         fillWordMesh(mesh, wordNewPosition, word);
 
         for(let key of Object.keys(wordsBehind)) {
-            await update(Number(key), {}, { words, mesh, wordsRegistry }, 0, 0)
-        }
-
-        element.innerHTML = word.value;
-        element.classList.remove(
-            'horizontal',
-            'vertical',
-            'weight-1',
-            'weight-2',
-            'weight-3',
-            'weight-4',
-            'weight-5'
-        );
-        element.classList.add(
-            wordNewPosition.direction === HORIZONTAL ? 'horizontal' : 'vertical'
-        );
-
-        element.classList.add(`weight-${word.weight}`);
-        element.style.top = `${
-            wordNewPosition.direction === HORIZONTAL
-                ? wordNewPosition.nextPoint.y * DELTA
-                : wordNewPosition.nextPoint.y * DELTA
-        }px`;
-        element.style.left = `${
-            wordNewPosition.direction === HORIZONTAL
-                ? wordNewPosition.nextPoint.x * DELTA
-                : wordNewPosition.nextPoint.x * DELTA
-        }px`;
+            await update(Number(key), {}, { words, mesh, wordsRegistry }, ignoreWeight > 0 ? ignoreWeight - 1 : 0, 0, false, cache)
+        }      
     } else {
         console.warn('No space for', word, 'needed X=', word.weight * word.value.length, 'needed Y=', word.weight,'matrixX', mesh.length, 'matrixY', mesh[0].length);
         //findPossiblePositions;
     }
+
+
+    if (top) {
+        const keys = Object.keys(cache);
+
+        for (key of keys) {
+            const element = document.getElementById(`word-${key}`);
+            //element.innerHTML = word.value;
+            element.classList.remove(
+                'horizontal',
+                'vertical',
+                'weight-1',
+                'weight-2',
+                'weight-3',
+                'weight-4',
+                'weight-5'
+            );
+    
+    
+            element.classList.add(
+                cache[key].direction === HORIZONTAL ? 'horizontal' : 'vertical'
+            );
+    
+            element.classList.add(`weight-${cache[key].weight}`);
+            element.style.top = `${
+                cache[key].direction === HORIZONTAL
+                    ? cache[key].nextPoint.y * DELTA
+                    : cache[key].nextPoint.y * DELTA
+            }px`;
+            element.style.left = `${
+                cache[key].direction === HORIZONTAL
+                    ? cache[key].nextPoint.x * DELTA
+                    : cache[key].nextPoint.x * DELTA
+            }px`;
+        }
+    }
+
     return { words, mesh, wordsRegistry };
 }
 
@@ -414,7 +423,8 @@ function findWordPosition(wordSize, mesh, wordsRegistry, ignoreWeight = 0) {
                         ),
                         neededY: Math.ceil((wordSize.weight * MY) / DELTA)
                     },
-                    direction: HORIZONTAL
+                    direction: HORIZONTAL,
+                    weight: wordSize.weight
                 };
             }
             if (
@@ -435,9 +445,10 @@ function findWordPosition(wordSize, mesh, wordsRegistry, ignoreWeight = 0) {
                         neededX: Math.ceil((wordSize.weight * MY) / DELTA),
                         neededY: Math.ceil(
                             (wordSize.weight * wordSize.width * MX) / DELTA
-                        )
+                        ),
                     },
-                    direction: VERTICAL
+                    direction: VERTICAL,
+                    weight: wordSize.weight
                 };
             }
         }
@@ -505,14 +516,14 @@ async function start(words) {
 start(data)
     .then(props => printMatrix(props))
     .then(props => update(10, { weight: 2 }, props, 1))
-    .then(props => update(10, { weight: 3 }, props, 1))
+    .then(props => update(10, { weight: 3 }, props, 2))
     .then(props => update(1, { weight: 1 }, props))
     .then(props => update(2, { weight: 1 }, props))
-    .then(props => update(11, { weight: 5 }, props, 1))
-    .then(props => update(40, { weight: 5 }, props, 1))
-   .then(props => update(41, { weight: 4 }, props, 1))
-   .then(props => printMatrix(props))
-    .then(props => console.log(getWordsOnArea({ x: 3, y: 3, width: 5, height: 5 }, props)));
+    .then(props => update(11, { weight: 5 }, props, 4))
+    .then(props => update(40, { weight: 5 }, props, 4))
+    .then(props => update(41, { weight: 4 }, props, 3))
+    .then(props => printMatrix(props))
+    // .then(props => console.log(getWordsOnArea({ x: 3, y: 3, width: 5, height: 5 }, props)));
 
 
     // const mesh = new Array(16).fill(0).map(() => new Array(4).fill(0).map(() => [0]));
